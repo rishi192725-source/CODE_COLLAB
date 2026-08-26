@@ -93,22 +93,68 @@ io.on("connection", (socket) => {
   });
 });
 
+const judge0LanguageMap = {
+  python3: 71,
+  java: 91,
+  cpp: 54,
+  nodejs: 93,
+  c: 50,
+  ruby: 72,
+  go: 95,
+  scala: 81,
+  bash: 46,
+  sql: 82,
+  pascal: 67,
+  csharp: 51,
+  php: 98,
+  swift: 83,
+  rust: 73,
+  r: 80,
+};
+
 app.post("/compile", async (req, res) => {
   const { code, language } = req.body;
 
   try {
-    const response = await axios.post("https://api.jdoodle.com/v1/execute", {
-      script: code,
-      language: language,
-      versionIndex: languageConfig[language].versionIndex,
-      clientId: process.env.jDoodle_clientId,
-      clientSecret: process.env.kDoodle_clientSecret,
-    });
+    // If JDoodle API credentials are provided in .env
+    if (process.env.jDoodle_clientId && (process.env.jDoodle_clientSecret || process.env.kDoodle_clientSecret)) {
+      const response = await axios.post("https://api.jdoodle.com/v1/execute", {
+        script: code,
+        language: language,
+        versionIndex: languageConfig[language]?.versionIndex || "0",
+        clientId: process.env.jDoodle_clientId,
+        clientSecret: process.env.jDoodle_clientSecret || process.env.kDoodle_clientSecret,
+      });
+      return res.json(response.data);
+    }
 
-    res.json(response.data);
+    // Default to free Judge0 Compiler API (No API key needed)
+    const languageId = judge0LanguageMap[language] || 71;
+    const response = await axios.post(
+      "https://ce.judge0.com/submissions?base64_encoded=false&wait=true",
+      {
+        source_code: code,
+        language_id: languageId,
+      },
+      {
+        headers: { "Content-Type": "application/json" },
+        timeout: 15000,
+      }
+    );
+
+    const data = response.data;
+    const output =
+      data.stdout ||
+      data.stderr ||
+      data.compile_output ||
+      data.message ||
+      (data.status && data.status.description) ||
+      "Execution completed with no output";
+
+    res.json({ output, ...data });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to compile code" });
+    console.error("Compilation error:", error.message);
+    res.status(500).json({ error: "Failed to compile code: " + (error.response?.data?.message || error.message) });
   }
 });
 
