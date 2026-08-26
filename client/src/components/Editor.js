@@ -1,63 +1,132 @@
 import React, { useEffect, useRef } from "react";
-import "codemirror/mode/javascript/javascript";
+import "codemirror/lib/codemirror.css";
 import "codemirror/theme/dracula.css";
 import "codemirror/addon/edit/closetag";
 import "codemirror/addon/edit/closebrackets";
-import "codemirror/lib/codemirror.css";
+
+// Language modes
+import "codemirror/mode/javascript/javascript";
+import "codemirror/mode/python/python";
+import "codemirror/mode/clike/clike";
+import "codemirror/mode/ruby/ruby";
+import "codemirror/mode/go/go";
+import "codemirror/mode/shell/shell";
+import "codemirror/mode/sql/sql";
+import "codemirror/mode/pascal/pascal";
+import "codemirror/mode/php/php";
+import "codemirror/mode/swift/swift";
+import "codemirror/mode/rust/rust";
+import "codemirror/mode/r/r";
+
 import CodeMirror from "codemirror";
 import { ACTIONS } from "../Actions";
 
-function Editor({ socketRef, roomId, onCodeChange }) {
-  const editorRef = useRef(null);
-  useEffect(() => {
-    const init = async () => {
-      const editor = CodeMirror.fromTextArea(
-        document.getElementById("realtimeEditor"),
-        {
-          mode: { name: "javascript", json: true },
-          theme: "dracula",
-          autoCloseTags: true,
-          autoCloseBrackets: true,
-          lineNumbers: true,
-        }
-      );
-      // for sync the code
-      editorRef.current = editor;
+export const getCodeMirrorMode = (lang) => {
+  switch (lang) {
+    case "python3":
+      return "python";
+    case "java":
+      return "text/x-java";
+    case "cpp":
+      return "text/x-c++src";
+    case "c":
+      return "text/x-csrc";
+    case "csharp":
+      return "text/x-csharp";
+    case "scala":
+      return "text/x-scala";
+    case "nodejs":
+      return { name: "javascript", json: true };
+    case "ruby":
+      return "ruby";
+    case "go":
+      return "go";
+    case "bash":
+      return "shell";
+    case "sql":
+      return "sql";
+    case "pascal":
+      return "pascal";
+    case "php":
+      return "php";
+    case "swift":
+      return "swift";
+    case "rust":
+      return "rust";
+    case "r":
+      return "r";
+    default:
+      return "javascript";
+  }
+};
 
-      editor.setSize(null, "100%");
-      editorRef.current.on("change", (instance, changes) => {
-        // console.log("changes", instance ,  changes );
+function Editor({
+  socketRef,
+  roomId,
+  onCodeChange,
+  selectedLanguage,
+  initialCode,
+  onRunCode,
+  editorRef,
+}) {
+  const localEditorRef = useRef(null);
+
+  useEffect(() => {
+    const textarea = document.getElementById("realtimeEditor");
+    if (textarea && !localEditorRef.current) {
+      const editor = CodeMirror.fromTextArea(textarea, {
+        mode: getCodeMirrorMode(selectedLanguage || "python3"),
+        theme: "dracula",
+        autoCloseTags: true,
+        autoCloseBrackets: true,
+        lineNumbers: true,
+        tabSize: 4,
+        indentUnit: 4,
+        lineWrapping: true,
+        extraKeys: {
+          "Ctrl-Enter": () => {
+            if (onRunCode) onRunCode();
+          },
+          "Cmd-Enter": () => {
+            if (onRunCode) onRunCode();
+          },
+        },
+      });
+
+      localEditorRef.current = editor;
+      if (editorRef) {
+        editorRef.current = editor;
+      }
+      editor.setSize("100%", "100%");
+
+      if (initialCode) {
+        editor.setValue(initialCode);
+        onCodeChange(initialCode);
+      }
+
+      editor.on("change", (instance, changes) => {
         const { origin } = changes;
-        const code = instance.getValue(); // code has value which we write
+        const code = instance.getValue();
         onCodeChange(code);
-        if (origin !== "setValue") {
+        if (origin !== "setValue" && socketRef.current) {
           socketRef.current.emit(ACTIONS.CODE_CHANGE, {
             roomId,
             code,
           });
         }
       });
-    };
-
-    init();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // data receive from server
   useEffect(() => {
-    if (socketRef.current) {
-      socketRef.current.on(ACTIONS.CODE_CHANGE, ({ code }) => {
-        if (code !== null) {
-          editorRef.current.setValue(code);
-        }
-      });
+    if (localEditorRef.current) {
+      localEditorRef.current.setOption("mode", getCodeMirrorMode(selectedLanguage));
     }
-    return () => {
-      socketRef.current.off(ACTIONS.CODE_CHANGE);
-    };
-  }, [socketRef.current]);
+  }, [selectedLanguage]);
 
   return (
-    <div style={{ height: "600px" }}>
+    <div className="editor-container">
       <textarea id="realtimeEditor"></textarea>
     </div>
   );

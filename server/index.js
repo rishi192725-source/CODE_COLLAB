@@ -35,7 +35,7 @@ app.use(express.json());
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
@@ -53,12 +53,12 @@ const getAllConnectedClients = (roomId) => {
 };
 
 io.on("connection", (socket) => {
-  // console.log('Socket connected', socket.id);
+  // User joins room
   socket.on(ACTIONS.JOIN, ({ roomId, username }) => {
     userSocketMap[socket.id] = username;
     socket.join(roomId);
     const clients = getAllConnectedClients(roomId);
-    // notify that new user join
+    // notify everyone in the room
     clients.forEach(({ socketId }) => {
       io.to(socketId).emit(ACTIONS.JOINED, {
         clients,
@@ -68,19 +68,27 @@ io.on("connection", (socket) => {
     });
   });
 
-  // sync the code
+  // Real-time code change broadcast
   socket.on(ACTIONS.CODE_CHANGE, ({ roomId, code }) => {
     socket.in(roomId).emit(ACTIONS.CODE_CHANGE, { code });
   });
-  // when new user join the room all the code which are there are also shows on that persons editor
-  socket.on(ACTIONS.SYNC_CODE, ({ socketId, code }) => {
-    io.to(socketId).emit(ACTIONS.CODE_CHANGE, { code });
+
+  // Real-time language change broadcast
+  socket.on(ACTIONS.LANGUAGE_CHANGE, ({ roomId, language }) => {
+    socket.in(roomId).emit(ACTIONS.LANGUAGE_CHANGE, { language });
   });
 
-  // leave room
+  // Sync existing code and language to newly joined user
+  socket.on(ACTIONS.SYNC_CODE, ({ socketId, code, language }) => {
+    io.to(socketId).emit(ACTIONS.CODE_CHANGE, { code });
+    if (language) {
+      io.to(socketId).emit(ACTIONS.LANGUAGE_CHANGE, { language });
+    }
+  });
+
+  // Handle user disconnect
   socket.on("disconnecting", () => {
     const rooms = [...socket.rooms];
-    // leave all the room
     rooms.forEach((roomId) => {
       socket.in(roomId).emit(ACTIONS.DISCONNECTED, {
         socketId: socket.id,
@@ -89,9 +97,9 @@ io.on("connection", (socket) => {
     });
 
     delete userSocketMap[socket.id];
-    socket.leave();
   });
 });
+
 
 const judge0LanguageMap = {
   python3: 71,
@@ -113,13 +121,14 @@ const judge0LanguageMap = {
 };
 
 app.post("/compile", async (req, res) => {
-  const { code, language } = req.body;
+  const { code, language, input } = req.body;
 
   try {
     // If JDoodle API credentials are provided in .env
     if (process.env.jDoodle_clientId && (process.env.jDoodle_clientSecret || process.env.kDoodle_clientSecret)) {
       const response = await axios.post("https://api.jdoodle.com/v1/execute", {
         script: code,
+        stdin: input || "",
         language: language,
         versionIndex: languageConfig[language]?.versionIndex || "0",
         clientId: process.env.jDoodle_clientId,
@@ -135,6 +144,7 @@ app.post("/compile", async (req, res) => {
       {
         source_code: code,
         language_id: languageId,
+        stdin: input || "",
       },
       {
         headers: { "Content-Type": "application/json" },
@@ -151,12 +161,21 @@ app.post("/compile", async (req, res) => {
       (data.status && data.status.description) ||
       "Execution completed with no output";
 
-    res.json({ output, ...data });
+    res.json({
+      output,
+      time: data.time,
+      memory: data.memory,
+      status: data.status,
+      ...data,
+    });
   } catch (error) {
     console.error("Compilation error:", error.message);
-    res.status(500).json({ error: "Failed to compile code: " + (error.response?.data?.message || error.message) });
+    res.status(500).json({
+      error: "Failed to compile code: " + (error.response?.data?.message || error.message),
+    });
   }
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server is runnint on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server is running on port ${PORT}`));
+
