@@ -11,11 +11,10 @@ services:
       - key: PORT
         value: 5000
 
-  # Frontend (React Client)
+  # Frontend (React Static Site)
   - type: web
     name: codecollab-client
     runtime: static
-    plan: free
     rootDir: client
     buildCommand: npm install && npm run build
     staticPublishPath: build
