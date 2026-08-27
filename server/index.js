@@ -28,16 +28,25 @@ const languageConfig = {
 };
 
 // Enable CORS
-app.use(cors());
+const allowedOrigins = process.env.CLIENT_URL
+  ? [process.env.CLIENT_URL, "http://localhost:3000"]
+  : "*";
+app.use(cors({ origin: allowedOrigins }));
 
 // Parse JSON bodies
 app.use(express.json());
 
+// Health check endpoint for Render
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "CodeCast backend is running" });
+});
+
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
   },
+  transports: ["websocket", "polling"],
 });
 
 const userSocketMap = {};
