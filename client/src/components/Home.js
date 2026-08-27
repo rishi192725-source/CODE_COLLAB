@@ -47,7 +47,7 @@ function Home() {
             <Code2 size={24} color="#10b981" />
           </div>
           <h2 className="brand-title mb-1">
-            &lt;Code<span className="text-white"> On /&gt;</span>
+            Code<span className="text-white"> On</span>
           </h2>
           <p className="text-muted small mb-0">Real-Time Code Collaboration</p>
         </div>

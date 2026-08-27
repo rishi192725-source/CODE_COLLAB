@@ -271,7 +271,7 @@ function EditorPage() {
           <div className="d-flex align-items-center gap-2">
             <Code2 size={20} color="#10b981" />
             <span className="brand-text">
-              &lt;Code<span className="text-white"> On /&gt;</span>
+              Code<span className="text-white"> On</span>
             </span>
           </div>
           <span className="brand-sub">Real-Time IDE</span>
