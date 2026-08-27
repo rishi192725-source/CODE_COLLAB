@@ -2,9 +2,6 @@
 
 CodeCast is a real-time code collaboration web application that allows multiple users to collaborate on code in the same virtual room. It's built using the MERN (MongoDB, Express.js, React, Node.js) stack and Socket.IO for real-time communication.
 
-## Live Demo
-
-You can try out CodeCast by visiting the [live demo](https://codecast-324z.onrender.com). Create or join a room and start collaborating with others in real time!
 ## Features
 
 - Create or join a virtual "room" by entering a room ID.
